@@ -104,6 +104,16 @@ Filtra `spend_by_page_region` a una entidad y ordena por `spend_lower`
 descendente. Es la gráfica por estado que antes solo se podía armar a mano con el
 CSV exportable de Meta.
 
+### `ad_actors` — atribución anuncio × actor
+
+`python -m politica_meta actors` (diccionario: `dictionaries/actores.csv`).
+Un renglón por par (anuncio, actor mencionado): `locations` dice dónde empató
+(`body` = tema; `bylines` = financiamiento declarado; `page` = nombre de página),
+`matched_aliases` qué alias, y `via_ambiguous = 1` si el empate fue por un alias
+corto validado por contexto. **Mencionar a un actor no implica favorecerlo** — la
+postura es la fase siguiente de la metodología (§4). También en SQLite como tabla
+`ad_actors`.
+
 ### Verificación automática
 
 Cada corrida de `aggregate` reconcilia la suma asignada contra la suma directa por

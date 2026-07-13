@@ -40,6 +40,9 @@ python -m politica_meta scrape --start 2026-01-01 --end 2026-06-30 --page-ids 12
 # Buscar propaganda NO declarada como política (ver metodología, §6)
 python -m politica_meta scrape --start 2026-01-01 --end 2026-06-30 --ad-type ALL --search-terms "nombre del candidato"
 
+# Atribución de actores: ¿qué anuncios mencionan a qué político/partido?
+python -m politica_meta actors            # usa dictionaries/actores.csv
+
 # Resumen y exportación
 python -m politica_meta stats
 python -m politica_meta export --out data/ads_mx.parquet   # o .csv
@@ -158,5 +161,12 @@ sus anuncios en la Ad Library pública). Lee `data/aggregates/*.parquet`; corre
 1. ✅ Scraper de la Ad Library
 2. ✅ Agregados página×región×mes con intervalos y reconciliación
 3. ✅ Dashboard en Streamlit v1 (identidad umbral_)
-4. ⬜ Diccionario de actores (candidatos, partidos, alias) y pipeline de atribución
-5. ⬜ Clasificación de postura (favor/contra) — ver `METODOLOGIA.md`
+4. ✅ Diccionario de actores v1 (semilla) y pipeline de atribución (`actors`)
+5. ⬜ Expandir diccionario con registros de candidaturas del INE/OPLEs
+6. ⬜ Clasificación de postura (favor/contra) — ver `METODOLOGIA.md`
+
+El diccionario vive en `dictionaries/actores.csv` (una fila por actor: alias
+inequívocos, alias ambiguos que exigen contexto, partido, cargo, entidad). La
+semilla trae partidos nacionales y ~13 figuras; **hay que expandirlo con los
+registros del INE** conforme avance el análisis — el comando `actors` reporta la
+cobertura para saber cuánto falta.

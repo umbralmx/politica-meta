@@ -1,0 +1,21 @@
+actor_id,nombre,tipo,partido,cargo,entidad,alias,alias_ambiguos,notas
+morena,Morena,partido,Morena,,Nacional,morena|movimiento regeneracion nacional,4t|cuarta transformacion,
+pan,Partido Acción Nacional,partido,PAN,,Nacional,partido accion nacional|accion nacional,pan,"""pan"" también es sustantivo común: requiere contexto"
+pri,Partido Revolucionario Institucional,partido,PRI,,Nacional,partido revolucionario institucional,pri,
+mc,Movimiento Ciudadano,partido,MC,,Nacional,movimiento ciudadano,mc,"""mc"" colisiona con iniciales: requiere contexto"
+pvem,Partido Verde Ecologista de México,partido,PVEM,,Nacional,partido verde ecologista|partido verde,pvem,
+pt,Partido del Trabajo,partido,PT,,Nacional,partido del trabajo,pt,"""pt"" ambiguo: requiere contexto"
+prd,Partido de la Revolución Democrática,partido,PRD,,Nacional,partido de la revolucion democratica,prd,perdió registro nacional en 2024; conserva registros locales
+sheinbaum,Claudia Sheinbaum,persona,Morena,Presidenta de la República,Nacional,claudia sheinbaum|sheinbaum pardo|sheinbaum,claudia|presidenta,
+amlo,Andrés Manuel López Obrador,persona,Morena,Expresidente,Nacional,lopez obrador|andres manuel|amlo,,
+maynez,Jorge Álvarez Máynez,persona,MC,Dirigente nacional MC,Nacional,alvarez maynez|maynez,,observado como top anunciante en datos 2026
+ebrard,Marcelo Ebrard,persona,Morena,Secretario de Economía,Nacional,marcelo ebrard|ebrard,marcelo,
+alito,Alejandro Moreno Cárdenas,persona,PRI,Dirigente nacional PRI,Nacional,alejandro moreno cardenas|alito moreno,alito,
+samuel_garcia,Samuel García,persona,MC,Gobernador,Nuevo León,samuel garcia sepulveda|samuel garcia,samuel,
+colosio_riojas,Luis Donaldo Colosio Riojas,persona,MC,Senador,Nuevo León,colosio riojas|luis donaldo colosio,colosio,
+brugada,Clara Brugada,persona,Morena,Jefa de Gobierno,Ciudad de México,clara brugada|brugada,clara,
+delfina,Delfina Gómez,persona,Morena,Gobernadora,Estado de México,delfina gomez,delfina,
+lemus,Pablo Lemus,persona,MC,Gobernador,Jalisco,pablo lemus|lemus navarro,pablo,
+durazo,Alfonso Durazo,persona,Morena,Gobernador,Sonora,alfonso durazo|durazo,,
+armenta,Alejandro Armenta,persona,Morena,Gobernador,Puebla,alejandro armenta|armenta,,
+arratia,Félix Arratia,persona,MC,Político,Nuevo León,felix arratia|arratia,,observado como top anunciante en datos 2026; verificar cargo vigente

@@ -75,6 +75,11 @@ class AdStore:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(self.db_path)
+        # WAL + busy_timeout: el barrido (escritor) y los análisis (lectores u
+        # otros escritores por ráfagas) pueden convivir sin "database is locked".
+        self.conn.execute("PRAGMA busy_timeout=60000")
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
         self.conn.executescript(SCHEMA)
 
     def close(self) -> None:

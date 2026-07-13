@@ -102,6 +102,33 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
         store.close()
 
 
+def cmd_actors(args: argparse.Namespace) -> None:
+    from .actors import actor_summary, export_matches, load_dictionary, match_all
+    from .storage import AdStore
+
+    actors = load_dictionary(args.dict)
+    store = AdStore(args.db)
+    try:
+        stats = match_all(store, actors, start=args.start, end=args.end)
+        n = export_matches(store, args.out_dir)
+        summary = actor_summary(store)
+    finally:
+        store.close()
+    print(
+        f"Cobertura: {stats['ads_matched']:,}/{stats['ads_total']:,} anuncios "
+        f"({stats['coverage']:.1%}) mencionan a algún actor del diccionario; "
+        f"{stats['pairs']:,} pares anuncio×actor → {args.out_dir}/ad_actors.csv"
+    )
+    print("\nGasto de anuncios que mencionan a cada actor (no implica favorabilidad):")
+    for _, r in summary.head(15).iterrows():
+        hi = "sin techo" if r["upper_unbounded"] else f"${r['spend_upper']:,.0f}"
+        print(
+            f"  {r['actor_id']}: {int(r['ads']):,} anuncios, {int(r['pages']):,} páginas, "
+            f"${r['spend_lower']:,.0f} – {hi}"
+            + (f" · {int(r['ads_en_bylines'])} con mención en bylines" if r["ads_en_bylines"] else "")
+        )
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     from .storage import AdStore
 
@@ -175,6 +202,17 @@ def main() -> None:
     p_agg.add_argument("--region", help='vista por entidad, p. ej. --region "Sonora"')
     p_agg.add_argument("--top", type=int, default=30, help="N páginas en la vista por entidad (default: 30)")
     p_agg.set_defaults(func=cmd_aggregate)
+
+    p_act = sub.add_parser(
+        "actors",
+        help="empatar anuncios contra el diccionario de actores (metodología §3)",
+    )
+    p_act.add_argument("--db", default=DEFAULT_DB)
+    p_act.add_argument("--dict", default="dictionaries/actores.csv")
+    p_act.add_argument("--out-dir", default="data/aggregates")
+    p_act.add_argument("--start", help="filtrar por fecha de entrega mínima YYYY-MM-DD")
+    p_act.add_argument("--end", help="filtrar por fecha de entrega máxima YYYY-MM-DD")
+    p_act.set_defaults(func=cmd_actors)
 
     p_stats = sub.add_parser("stats", help="resumen de lo descargado")
     p_stats.add_argument("--db", default=DEFAULT_DB)
