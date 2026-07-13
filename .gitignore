@@ -1,0 +1,16 @@
+# Secretos
+.env
+
+# Datos descargados
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# SO / editores
+.DS_Store
