@@ -4,6 +4,10 @@
 # Datos descargados (el diccionario de datos sí se versiona)
 data/*
 !data/README.md
+# Agregados en parquet sí se versionan: el dashboard en Streamlit Cloud los lee del repo
+!data/aggregates/
+data/aggregates/*
+!data/aggregates/*.parquet
 
 # Python
 __pycache__/
