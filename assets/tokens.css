@@ -1,0 +1,39 @@
+:root {
+  /* ── Umbral design tokens · modo laboratorio (light) — DEFAULT ── */
+  --u-ink: #16191C;          /* text, axes, primary marks */
+  --u-base: #F2F3F1;         /* page background */
+  --u-panel: #FAFAF8;        /* cards, chart panels */
+  --u-border: #DDE0DC;
+  --u-gridline: #E6E8E4;
+  --u-baseline: #C4C9C4;
+  --u-muted: #6E756F;        /* secondary text */
+  --u-caption: #9AA19B;      /* axis labels, sources */
+  --u-signal: #128273;       /* THE highlight — one element per view */
+  --u-model: #5A63D8;        /* second data series */
+  --u-alert: #C8503F;        /* warnings / third series */
+
+  --u-font-display: 'Space Grotesk', system-ui, sans-serif;
+  --u-font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --u-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --u-weight-display: 500;   /* never 700 for display */
+  --u-tracking-display: -0.02em;
+  --u-radius: 0px;           /* max 2px anywhere */
+  --u-rule: 1px;
+  --u-space: 8px;            /* spacing scale unit */
+}
+
+[data-mode="instrumento"], .u-dark {
+  /* ── modo instrumento (dark) — dashboards, social, section breaks ── */
+  --u-ink: #EDF1F4;
+  --u-base: #101418;
+  --u-panel: #171C22;
+  --u-border: #2A3138;
+  --u-gridline: #232A31;
+  --u-baseline: #3A434C;
+  --u-muted: #8B95A0;
+  --u-caption: #5C6670;
+  --u-signal: #5FD4C4;
+  --u-model: #8B93F8;
+  --u-alert: #E26A5A;
+}

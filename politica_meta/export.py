@@ -29,6 +29,11 @@ def export(store: AdStore, out_path: str | Path) -> int:
     out = Path(out_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     df = pd.read_sql_query(EXPORT_QUERY, store.conn)
+    # ad_snapshot_url incluye el access token del scraper: nunca debe salir
+    # en un archivo compartible.
+    df["ad_snapshot_url"] = df["ad_snapshot_url"].str.replace(
+        r"access_token=[^&]+", "access_token=REDACTED", regex=True
+    )
     suffix = out.suffix.lower()
     if suffix == ".csv":
         df.to_csv(out, index=False)

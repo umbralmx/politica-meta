@@ -1,0 +1,10 @@
+# Tema modo instrumento (umbral_): tokens de assets/tokens.json
+[theme]
+base = "dark"
+primaryColor = "#5FD4C4"
+backgroundColor = "#101418"
+secondaryBackgroundColor = "#171C22"
+textColor = "#EDF1F4"
+
+[server]
+headless = true

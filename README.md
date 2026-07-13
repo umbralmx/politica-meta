@@ -140,9 +140,23 @@ politica_meta/
 METODOLOGIA.md # metodología de atribución de beneficiario, postura y gasto
 ```
 
+## Dashboard (Streamlit)
+
+```bash
+streamlit run app.py
+```
+
+Modo instrumento (oscuro) con la identidad de umbral_. Tres vistas: **Panorama**
+(intervalo de gasto mensual y ranking de páginas), **Por entidad** (ranking de
+páginas por estado, con la nota de que el prorrateo regional es modelado) y
+**Por anunciante** (detalle de página: serie mensual, huella territorial y liga a
+sus anuncios en la Ad Library pública). Lee `data/aggregates/*.parquet`; corre
+`aggregate` antes para refrescar.
+
 ## Hoja de ruta
 
 1. ✅ Scraper de la Ad Library
-2. ⬜ Diccionario de actores (candidatos, partidos, alias) y pipeline de atribución
-3. ⬜ Clasificación de postura (favor/contra) — ver `METODOLOGIA.md`
-4. ⬜ Dashboard en Streamlit (estilo [desaparecidosmx](https://desaparecidosmx.streamlit.app/))
+2. ✅ Agregados página×región×mes con intervalos y reconciliación
+3. ✅ Dashboard en Streamlit v1 (identidad umbral_)
+4. ⬜ Diccionario de actores (candidatos, partidos, alias) y pipeline de atribución
+5. ⬜ Clasificación de postura (favor/contra) — ver `METODOLOGIA.md`

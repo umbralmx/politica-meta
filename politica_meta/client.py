@@ -40,10 +40,13 @@ DEFAULT_FIELDS = [
     "ad_snapshot_url",
 ]
 
-# Graph API error codes that resolve by waiting and retrying (rate limits,
-# transient server issues). 613 = ads_archive rate limit, 4/17/32 = app/user
-# throttling, 1/2 = unknown/service errors.
-TRANSIENT_ERROR_CODES = {1, 2, 4, 17, 32, 341, 613}
+# Rate limits se resuelven esperando: merecen el ciclo completo de backoff.
+# 613 = rate limit de ads_archive, 4/17/32/341 = throttling de app/usuario.
+RATELIMIT_ERROR_CODES = {4, 17, 32, 341, 613}
+# "Unknown error" (1/2) en la práctica es persistente cuando el conjunto de
+# resultados es muy grande: pocos reintentos y que el scraper divida la ventana.
+FLAKY_ERROR_CODES = {1, 2}
+FLAKY_MAX_RETRIES = 3
 
 MIN_PAGE_SIZE = 25
 
@@ -171,8 +174,11 @@ class AdLibraryClient:
                 logger.warning("Respuesta demasiado grande; reduciendo page size a %d", page_size)
                 continue
 
-            retryable = code in TRANSIENT_ERROR_CODES or resp.status_code >= 500
-            if retryable and attempt < self.max_retries:
+            if code in RATELIMIT_ERROR_CODES and attempt < self.max_retries:
+                self._sleep(attempt, f"código {code}: {message}")
+                continue
+            flaky = code in FLAKY_ERROR_CODES or resp.status_code >= 500
+            if flaky and attempt < min(FLAKY_MAX_RETRIES, self.max_retries):
                 self._sleep(attempt, f"código {code}: {message}")
                 continue
 
