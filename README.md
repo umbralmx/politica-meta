@@ -7,6 +7,8 @@ Descarga y análisis de anuncios políticos en Facebook e Instagram (México), u
 **Objetivo:** hacer trazable el gasto político en Meta — incluido el que fluye por
 medios locales y páginas de terceros — y eventualmente publicarlo en un dashboard
 de Streamlit. La metodología de análisis está en [`METODOLOGIA.md`](METODOLOGIA.md).
+El contexto completo del proyecto (para colaboradores o asistentes de IA) está en
+[`CONTEXT.md`](CONTEXT.md).
 
 ## Requisitos de acceso (una sola vez)
 
@@ -41,7 +43,51 @@ python -m politica_meta scrape --start 2026-01-01 --end 2026-06-30 --ad-type ALL
 # Resumen y exportación
 python -m politica_meta stats
 python -m politica_meta export --out data/ads_mx.parquet   # o .csv
+
+# Tablas agregadas (todas, CSV + Parquet): página, región, página×región, mes
+python -m politica_meta aggregate --start 2026-01-01 --end 2026-06-30
+
+# Solo una familia de tablas
+python -m politica_meta aggregate --by page_region
+
+# Ranking de páginas por gasto en una entidad (el gráfico por estado)
+python -m politica_meta aggregate --region "Sonora" --top 30
 ```
+
+### Relación con el Ad Library Report
+
+El [Ad Library Report](https://www.facebook.com/ads/library/report/) (gasto total,
+por anunciante y por ubicación desde agosto de 2020) **no está disponible vía API**:
+solo como descarga manual de CSVs desde esa página. Este proyecto reproduce sus dos
+tablas centrales a partir de los datos por anuncio de la API (`aggregate`):
+
+- `spend_by_page_region` — **tabla central**: una fila por (página, entidad), con el
+  gasto de cada anuncio prorrateado por los porcentajes de `delivery_by_region`.
+  Como esos porcentajes son participación de impresiones (no de gasto verificado),
+  cada valor es un intervalo *modelado* (`estimate_type = region_allocated`).
+- `spend_by_region_nonmx` — misma estructura para regiones extranjeras y "Unknown"
+  (no se descartan: entrega al extranjero es una señal en sí misma), separadas de
+  las tablas de análisis de México.
+- `spend_by_page` — marginal directo por página (equivale a "gasto por anunciante").
+- `spend_by_region` — marginal por entidad (32 estados, nombres canónicos: la API
+  usa variantes como "Distrito Federal", "State of Mexico" o "Querétaro Arteaga").
+- `spend_by_month` y `spend_by_page_month` — cohorte por mes de inicio de entrega
+  (`time_method = start_month_cohort`): el gasto de un anuncio largo cae completo en
+  su mes de inicio; el prorrateo por días activos queda documentado como v2.
+
+Reglas duras: el gasto es siempre intervalo `[spend_lower, spend_upper]`; si un
+anuncio cae en el bucket superior abierto de Meta, `spend_upper` queda NULL y
+`upper_unbounded = True` se propaga a toda celda/marginal que lo toque (nunca se
+tapa el techo con la cota inferior). Cada corrida ejecuta una reconciliación
+automática (suma asignada ≈ suma directa por página) que aborta con warnings si la
+asignación pierde dinero en el camino.
+
+Diferencia clave: el reporte oficial publica totales exactos; la API solo da rangos
+por anuncio, así que estos agregados son **intervalos** `[spend_lower, spend_upper]`
+(consistente con la metodología, §5). A cambio, la vía API es automatizable, filtrable
+por fechas arbitrarias y llega al detalle de anuncio, que el reporte no ofrece. Los
+CSVs oficiales pueden descargarse a mano de vez en cuando como *ground truth* para
+validar los agregados.
 
 ### Cómo funciona la descarga
 
@@ -89,6 +135,7 @@ politica_meta/
   scraper.py   # barridos por ventanas de fechas, reanudables
   storage.py   # SQLite con upsert y bitácora de ventanas
   export.py    # exportación a CSV/Parquet
+  aggregates.py# gasto por anunciante y por región (equivalente al Ad Library Report)
   __main__.py  # CLI
 METODOLOGIA.md # metodología de atribución de beneficiario, postura y gasto
 ```

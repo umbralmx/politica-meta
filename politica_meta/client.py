@@ -110,6 +110,11 @@ class AdLibraryClient:
             "ad_active_status": active_status,
             "fields": ",".join(fields or DEFAULT_FIELDS),
         }
+        # La API rechaza consultas sin search_terms ni search_page_ids, aunque
+        # la documentación diga lo contrario; "''" funciona como comodín que
+        # devuelve todos los anuncios del país (verificado en v25.0).
+        if not search_terms and not search_page_ids:
+            search_terms = "''"
         if search_terms:
             params["search_terms"] = search_terms
         if search_page_ids:

@@ -15,7 +15,7 @@ import json
 import logging
 from typing import Any, Iterator
 
-from .client import AdLibraryClient
+from .client import AdLibraryClient, AdLibraryError
 from .storage import AdStore
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,70 @@ def query_key(query: dict[str, Any]) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()[:16]
 
 
+def _download_window(
+    client: AdLibraryClient,
+    store: AdStore,
+    dmin: str,
+    dmax: str,
+    query: dict[str, Any],
+) -> int:
+    count = 0
+    batch: list[dict[str, Any]] = []
+    for ad in client.search(delivery_date_min=dmin, delivery_date_max=dmax, **query):
+        batch.append(ad)
+        count += 1
+        if len(batch) >= BATCH_SIZE:
+            store.upsert_many(batch)
+            batch.clear()
+            logger.info("  … %d anuncios en esta ventana", count)
+    store.upsert_many(batch)
+    return count
+
+
+def _process_window(
+    client: AdLibraryClient,
+    store: AdStore,
+    key: str,
+    dmin: str,
+    dmax: str,
+    query: dict[str, Any],
+    refresh: bool,
+    failed: list[tuple[str, str, str]],
+) -> int:
+    """Download one window; on persistent API failure (deep pagination breaks on
+    big result sets) split it in half and retry each side. A 1-day window that
+    still fails is recorded and the sweep continues."""
+    if not refresh and store.window_done(key, dmin, dmax):
+        logger.info("Ventana %s → %s ya completada, se omite", dmin, dmax)
+        return 0
+    try:
+        count = _download_window(client, store, dmin, dmax, query)
+    except AdLibraryError as exc:
+        d0, d1 = dt.date.fromisoformat(dmin), dt.date.fromisoformat(dmax)
+        span = (d1 - d0).days + 1
+        if span <= 1:
+            logger.error("Ventana %s → %s falló definitivamente: %s", dmin, dmax, exc)
+            failed.append((dmin, dmax, str(exc)))
+            return 0
+        mid = d0 + dt.timedelta(days=span // 2 - 1)
+        logger.warning(
+            "Ventana %s → %s falló (%s); dividiendo en %s→%s y %s→%s",
+            dmin, dmax, exc, dmin, mid.isoformat(), (mid + dt.timedelta(days=1)).isoformat(), dmax,
+        )
+        count = _process_window(client, store, key, dmin, mid.isoformat(), query, refresh, failed)
+        count += _process_window(
+            client, store, key, (mid + dt.timedelta(days=1)).isoformat(), dmax, query, refresh, failed
+        )
+        # Las dos mitades quedaron registradas; marcar también la ventana madre
+        # para que una reanudación futura no la reintente completa.
+        prior_failures = any(dmin <= f[0] and f[1] <= dmax for f in failed)
+        if not prior_failures:
+            store.mark_window_done(key, dmin, dmax, count)
+        return count
+    store.mark_window_done(key, dmin, dmax, count)
+    return count
+
+
 def run_sweep(
     client: AdLibraryClient,
     store: AdStore,
@@ -52,27 +116,19 @@ def run_sweep(
     window_days: int = 7,
     refresh: bool = False,
     **query: Any,
-) -> int:
-    """Download every ad delivered between start and end. Returns total ads seen."""
+) -> tuple[int, list[tuple[str, str, str]]]:
+    """Download every ad delivered between start and end.
+
+    Returns (total ads seen, failed windows). A window that fails even after
+    being split down to single days is skipped and reported, not fatal."""
     key = query_key({"window_days": window_days, **query})
     total = 0
+    failed: list[tuple[str, str, str]] = []
     windows = list(date_windows(start, end, window_days))
     for i, (dmin, dmax) in enumerate(windows, 1):
-        if not refresh and store.window_done(key, dmin, dmax):
-            logger.info("[%d/%d] %s → %s ya completada, se omite", i, len(windows), dmin, dmax)
-            continue
-        logger.info("[%d/%d] Descargando ventana %s → %s", i, len(windows), dmin, dmax)
-        count = 0
-        batch: list[dict[str, Any]] = []
-        for ad in client.search(delivery_date_min=dmin, delivery_date_max=dmax, **query):
-            batch.append(ad)
-            count += 1
-            if len(batch) >= BATCH_SIZE:
-                store.upsert_many(batch)
-                batch.clear()
-                logger.info("  … %d anuncios en esta ventana", count)
-        store.upsert_many(batch)
-        store.mark_window_done(key, dmin, dmax, count)
+        logger.info("[%d/%d] Ventana %s → %s", i, len(windows), dmin, dmax)
+        count = _process_window(client, store, key, dmin, dmax, query, refresh, failed)
         total += count
-        logger.info("[%d/%d] Ventana %s → %s completa: %d anuncios", i, len(windows), dmin, dmax, count)
-    return total
+        if count:
+            logger.info("[%d/%d] Ventana %s → %s completa: %d anuncios", i, len(windows), dmin, dmax, count)
+    return total, failed

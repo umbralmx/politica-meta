@@ -43,7 +43,7 @@ def cmd_scrape(args: argparse.Namespace) -> None:
     if args.page_ids:
         query["search_page_ids"] = args.page_ids.split(",")
     try:
-        total = run_sweep(
+        total, failed = run_sweep(
             client,
             store,
             start=args.start,
@@ -55,6 +55,12 @@ def cmd_scrape(args: argparse.Namespace) -> None:
     finally:
         store.close()
     print(f"Listo: {total} anuncios descargados/actualizados en {args.db}")
+    if failed:
+        print(f"ATENCIÓN: {len(failed)} ventanas fallaron incluso divididas a 1 día:")
+        for dmin, dmax, err in failed:
+            print(f"  {dmin} → {dmax}: {err}")
+        print("Vuelve a correr el mismo comando para reintentarlas.")
+        sys.exit(1)
 
 
 def cmd_export(args: argparse.Namespace) -> None:
@@ -67,6 +73,33 @@ def cmd_export(args: argparse.Namespace) -> None:
     finally:
         store.close()
     print(f"{n} anuncios exportados a {args.out}")
+
+
+def cmd_aggregate(args: argparse.Namespace) -> None:
+    from .aggregates import spend_by_page_region, top_pages_for_region, write_aggregates
+    from .storage import AdStore
+
+    store = AdStore(args.db)
+    try:
+        if args.region:
+            mx, _, _ = spend_by_page_region(store, args.start, args.end)
+            canon, top = top_pages_for_region(mx, args.region, args.top)
+            cols = ["page_name", "page_id", "bylines", "spend_lower", "spend_upper", "upper_unbounded", "ad_touches"]
+            print(f"Top {len(top)} páginas por gasto asignado en {canon} "
+                  f"(intervalos MXN, modelado por delivery_by_region):")
+            print(top[cols].to_string(index=False, max_colwidth=40, float_format=lambda x: f"{x:,.0f}"))
+            import pathlib
+            out = pathlib.Path(args.out_dir)
+            out.mkdir(parents=True, exist_ok=True)
+            slug = canon.lower().replace(" ", "_").replace("é", "e").replace("ó", "o").replace("í", "i")
+            top.to_csv(out / f"top_pages_{slug}.csv", index=False)
+            print(f"\nGuardado en {out / f'top_pages_{slug}.csv'}")
+        else:
+            counts = write_aggregates(store, args.out_dir, start=args.start, end=args.end, only=args.by)
+            written = ", ".join(f"{k}={v}" for k, v in counts.items())
+            print(f"Agregados escritos en {args.out_dir} (CSV + Parquet): {written}")
+    finally:
+        store.close()
 
 
 def cmd_stats(args: argparse.Namespace) -> None:
@@ -125,6 +158,23 @@ def main() -> None:
     p_export.add_argument("--db", default=DEFAULT_DB)
     p_export.add_argument("--out", default="data/ads_mx.csv", help="ruta .csv o .parquet")
     p_export.set_defaults(func=cmd_export)
+
+    p_agg = sub.add_parser(
+        "aggregate",
+        help="tablas equivalentes al Ad Library Report (gasto por anunciante y por región)",
+    )
+    p_agg.add_argument("--db", default=DEFAULT_DB)
+    p_agg.add_argument("--out-dir", default="data/aggregates")
+    p_agg.add_argument("--start", help="filtrar por fecha de entrega mínima YYYY-MM-DD")
+    p_agg.add_argument("--end", help="filtrar por fecha de entrega máxima YYYY-MM-DD")
+    p_agg.add_argument(
+        "--by",
+        choices=["page", "region", "page_region", "month", "page_month"],
+        help="emitir solo una familia de tablas (default: todas)",
+    )
+    p_agg.add_argument("--region", help='vista por entidad, p. ej. --region "Sonora"')
+    p_agg.add_argument("--top", type=int, default=30, help="N páginas en la vista por entidad (default: 30)")
+    p_agg.set_defaults(func=cmd_aggregate)
 
     p_stats = sub.add_parser("stats", help="resumen de lo descargado")
     p_stats.add_argument("--db", default=DEFAULT_DB)

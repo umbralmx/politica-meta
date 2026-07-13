@@ -1,8 +1,9 @@
 # Secretos
 .env
 
-# Datos descargados
-data/
+# Datos descargados (el diccionario de datos sí se versiona)
+data/*
+!data/README.md
 
 # Python
 __pycache__/
@@ -14,3 +15,4 @@ venv/
 
 # SO / editores
 .DS_Store
+.claude/settings.local.json
