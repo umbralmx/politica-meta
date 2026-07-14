@@ -149,6 +149,11 @@ y reportable a Meta/INE.
   inconsistencia documentable con evidencia dura.
 - Ojo con la ventana: la fiscalización cubre periodos de precampaña/campaña definidos
   por el calendario electoral; alinear las fechas de entrega del anuncio a esos cortes.
+- Implementación: llenar `dictionaries/ine_fiscalizacion.csv` a mano desde el SIF
+  (formato documentado en `politica_meta/ine.py`) y correr
+  `python -m politica_meta ine`. La inconsistencia se marca SOLO cuando la cota
+  inferior del universo atribuible (anuncios con el actor en `bylines`) supera lo
+  reportado — nunca con la cota superior ni con el universo de menciones.
 
 ## 8. Ética y publicación
 

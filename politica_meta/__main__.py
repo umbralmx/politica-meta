@@ -164,6 +164,25 @@ def cmd_stance(args: argparse.Namespace) -> None:
         store.close()
 
 
+def cmd_ine(args: argparse.Namespace) -> None:
+    from .ine import cross_check
+    from .storage import AdStore
+
+    store = AdStore(args.db)
+    try:
+        rows = cross_check(store, args.ine_csv)
+    finally:
+        store.close()
+    for r in rows:
+        flag = "⚠ INCONSISTENCIA" if r["inconsistencia"] else "ok"
+        hi = f"{r['bylines_upper']:,.0f}" if r["bylines_upper"] is not None else "sin techo"
+        print(f"{r['actor_id']} ({r['periodo']}): reportado ${r['gasto_redes_reportado']:,.0f} · "
+              f"observado (pagado por él) ${r['bylines_lower']:,.0f}–{hi} "
+              f"en {r['bylines_ads']} anuncios · menciones: {r['menciones_ads']} anuncios · {flag}")
+    if not rows:
+        print("CSV vacío — nada que cruzar.")
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     from .storage import AdStore
 
@@ -273,6 +292,14 @@ def main() -> None:
                           help="CSV del gold set humano")
     p_stance.add_argument("--n", type=int, default=300, help="tamaño del gold set")
     p_stance.set_defaults(func=cmd_stance)
+
+    p_ine = sub.add_parser(
+        "ine",
+        help="cruce gasto observado vs reportado al INE (metodología §7)",
+    )
+    p_ine.add_argument("--db", default=DEFAULT_DB)
+    p_ine.add_argument("--ine-csv", default="dictionaries/ine_fiscalizacion.csv")
+    p_ine.set_defaults(func=cmd_ine)
 
     p_stats = sub.add_parser("stats", help="resumen de lo descargado")
     p_stats.add_argument("--db", default=DEFAULT_DB)
