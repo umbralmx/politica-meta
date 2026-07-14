@@ -129,6 +129,41 @@ def cmd_actors(args: argparse.Namespace) -> None:
         )
 
 
+def cmd_stance(args: argparse.Namespace) -> None:
+    from . import stance
+    from .storage import AdStore
+
+    store = AdStore(args.db)
+    try:
+        if args.action == "sample-gold":
+            n = stance.sample_gold(store, args.gold, n=args.n)
+            print(f"{n} pares en {args.gold} — etiquétalos a mano en `postura_humana` "
+                  "(favorable | desfavorable | neutral | sin_postura), SIN ver etiquetas del LLM.")
+        elif args.action == "submit":
+            batch_id = stance.submit_batch(store, model=args.model, limit=args.limit)
+            print(f"Batch creado: {batch_id}\n"
+                  f"Cuando termine (~1 h): python -m politica_meta stance fetch --batch-id {batch_id}")
+        elif args.action == "fetch":
+            if not args.batch_id:
+                sys.exit("Falta --batch-id")
+            counts = stance.fetch_batch(store, args.batch_id)
+            n = stance.export_stance(store)
+            print(f"Resultados: {counts} · {n} etiquetas exportadas a data/aggregates/ad_stance.*")
+        elif args.action == "validate":
+            m = stance.validate(store, args.gold)
+            print(f"Validación contra gold set ({m['n_validados']} pares):")
+            print(f"  accuracy   {m['accuracy']:.3f}")
+            print(f"  macro-F1   {m['macro_f1']:.3f}")
+            print(f"  kappa      {m['kappa_cohen']:.3f}")
+            for label, s in m["por_clase"].items():
+                print(f"  {label:<14} P={s['precision']:.2f} R={s['recall']:.2f} "
+                      f"F1={s['f1']:.2f} (n={s['soporte']})")
+            print("Guardado en data/stance/validacion.json — estas métricas se "
+                  "publican junto con cualquier producto que use las etiquetas.")
+    finally:
+        store.close()
+
+
 def cmd_stats(args: argparse.Namespace) -> None:
     from .storage import AdStore
 
@@ -223,6 +258,21 @@ def main() -> None:
     p_act.add_argument("--start", help="filtrar por fecha de entrega mínima YYYY-MM-DD")
     p_act.add_argument("--end", help="filtrar por fecha de entrega máxima YYYY-MM-DD")
     p_act.set_defaults(func=cmd_actors)
+
+    p_stance = sub.add_parser(
+        "stance",
+        help="postura anuncio×actor con LLM + validación humana (metodología §4)",
+    )
+    p_stance.add_argument("action", choices=["sample-gold", "submit", "fetch", "validate"])
+    p_stance.add_argument("--db", default=DEFAULT_DB)
+    p_stance.add_argument("--model", default="claude-opus-4-8",
+                          help="modelo de etiquetado (si cambias, re-valida el gold set)")
+    p_stance.add_argument("--limit", type=int, help="máximo de pares en el batch")
+    p_stance.add_argument("--batch-id", help="ID del batch (para fetch)")
+    p_stance.add_argument("--gold", default="data/stance/gold.csv",
+                          help="CSV del gold set humano")
+    p_stance.add_argument("--n", type=int, default=300, help="tamaño del gold set")
+    p_stance.set_defaults(func=cmd_stance)
 
     p_stats = sub.add_parser("stats", help="resumen de lo descargado")
     p_stats.add_argument("--db", default=DEFAULT_DB)
