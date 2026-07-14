@@ -67,7 +67,7 @@ st.markdown(
 def load_tables() -> dict[str, pd.DataFrame]:
     tables = {}
     for name in ["spend_by_page", "spend_by_region", "spend_by_page_region",
-                 "spend_by_month", "spend_by_page_month", "ad_detail"]:
+                 "spend_by_month", "spend_by_page_month", "ad_detail", "page_signals"]:
         path = AGG_DIR / f"{name}.parquet"
         if path.exists():
             tables[name] = pd.read_parquet(path)
@@ -202,8 +202,8 @@ c2.metric("Anuncios", f"{int(pages['ads'].sum()):,}")
 c3.metric("Páginas anunciantes", f"{len(pages):,}")
 c4.metric("Periodo (inicio de entrega)", f"{months['month'].min()} → {months['month'].max()}")
 
-tab_panorama, tab_entidad, tab_anunciante = st.tabs(
-    ["Panorama", "Por entidad", "Por anunciante"]
+tab_panorama, tab_entidad, tab_anunciante, tab_senales = st.tabs(
+    ["Panorama", "Por entidad", "Por anunciante", "Señales"]
 )
 
 with tab_panorama:
@@ -352,3 +352,60 @@ with tab_anunciante:
         f"&country=MX&view_all_page_id={page_id}' style='color:{SIGNAL}'>Ad Library pública</a></span>",
         unsafe_allow_html=True,
     )
+
+with tab_senales:
+    senales = tablas.get("page_signals")
+    if senales is None:
+        st.info("Corre `python -m politica_meta aggregate --by signals` para generar esta tabla.")
+    else:
+        chart_meta(
+            "Señales de pauta con opacidad",
+            "Cada señal es un hecho derivado de los datos de Meta, no un veredicto: "
+            "sirven para priorizar revisión editorial, nunca para acusar por sí solas",
+        )
+        st.markdown(
+            f"""<span style='color:{CAPTION};font-size:13px'>
+            <b>Señales:</b> ① ≥50% de anuncios sin "Pagado por" · ② ≥3 pagadores distintos
+            (página intermediaria) · ③ ≥50% de anuncios pagados por un tercero distinto a la
+            página · ④ nombre con perfil de medio informativo · ⑤ ≥20% del gasto entregado
+            fuera de México.</span>""",
+            unsafe_allow_html=True,
+        )
+        col_m, col_g = st.columns([1, 1])
+        min_senales = col_m.select_slider("Señales activas (mínimo)", options=[1, 2, 3, 4, 5], value=2)
+        min_gasto = col_g.select_slider(
+            "Gasto mínimo (cota inferior, MXN)", options=[0, 10_000, 100_000, 500_000], value=10_000)
+
+        vista = senales[(senales["senales_activas"] >= min_senales)
+                        & (senales["spend_lower"] >= min_gasto)].copy()
+        vista["pct_sin_pagador"] *= 100
+        vista["pct_pagador_ajeno"] *= 100
+        vista["pct_entrega_extranjera"] *= 100
+        st.dataframe(
+            vista[["page_name", "ads", "spend_lower", "spend_upper", "pct_sin_pagador",
+                   "pagadores_distintos", "pct_pagador_ajeno", "perfil_de_medio",
+                   "pct_entrega_extranjera", "senales_activas"]]
+            .rename(columns={
+                "page_name": "Página", "ads": "Anuncios",
+                "spend_lower": "Gasto mín (MXN)", "spend_upper": "Gasto máx (MXN)",
+                "pct_sin_pagador": "% sin pagador", "pagadores_distintos": "Pagadores",
+                "pct_pagador_ajeno": "% pagador ajeno", "perfil_de_medio": "Perfil de medio",
+                "pct_entrega_extranjera": "% entrega extranjera",
+                "senales_activas": "Señales",
+            }),
+            column_config={
+                "% sin pagador": st.column_config.NumberColumn(format="%.0f %%"),
+                "% pagador ajeno": st.column_config.NumberColumn(format="%.0f %%"),
+                "% entrega extranjera": st.column_config.NumberColumn(format="%.0f %%"),
+                "Gasto mín (MXN)": st.column_config.NumberColumn(format="%.0f"),
+                "Gasto máx (MXN)": st.column_config.NumberColumn(format="%.0f"),
+            },
+            use_container_width=True, hide_index=True,
+        )
+        st.markdown(
+            f"<span style='color:{CAPTION};font-size:13px'>{len(vista):,} páginas con "
+            f"≥{min_senales} señales y gasto ≥{min_gasto:,} MXN · Gasto máx vacío = sin techo "
+            "conocido · % entrega extranjera vacío = sin datos de región.</span>",
+            unsafe_allow_html=True,
+        )
+        fuente()

@@ -113,6 +113,21 @@ Un renglón por anuncio, para el drill-down por anunciante del dashboard
 | `regions_mx` | Entrega por entidad, compacto: `"Entidad:pct\|Entidad:pct\|…"` (solo las 32 canónicas, orden descendente) |
 | `ad_url` | Vista pública `facebook.com/ads/library/?id=<ad_id>`. **Deliberadamente no** se incluye `ad_snapshot_url`: esa URL lleva el access token y esta tabla se publica |
 
+### `page_signals` — señales de pauta con opacidad (metodología §6)
+
+`python -m politica_meta aggregate --by signals`. Una fila por página. Cada
+señal es un **hecho** derivado de los datos, no un veredicto; no se publica
+ningún score compuesto. `senales_activas` cuenta cuántas señales superan su
+umbral documentado (priorización editorial, no acusación):
+
+| Señal | Umbral "activa" | Descripción |
+|---|---|---|
+| `pct_sin_pagador` | ≥ 0.5 | Proporción de anuncios sin "Pagado por" |
+| `pagadores_distintos` | ≥ 3 | Bylines distintos no vacíos (página intermediaria) |
+| `pct_pagador_ajeno` | ≥ 0.5 | Anuncios pagados por un tercero ≠ nombre de la página |
+| `perfil_de_medio` | = True | Nombre con perfil de medio informativo (regex conservador) |
+| `pct_entrega_extranjera` | ≥ 0.2 | Parte del gasto (cota inferior) entregada fuera de MX; vacío = sin datos de región |
+
 ### `top_pages_<entidad>.csv` — ranking por estado
 
 `python -m politica_meta aggregate --region "Sonora" --top 30`

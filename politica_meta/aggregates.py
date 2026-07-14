@@ -496,4 +496,10 @@ def write_aggregates(
         ads = ad_detail(store, start, end)
         _write(ads, out, "ad_detail")
         counts["ads"] = len(ads)
+    if only in (None, "signals"):
+        from .signals import page_signals  # import local: signals depende de este módulo
+
+        sig = page_signals(store, start, end)
+        _write(sig, out, "page_signals")
+        counts["signals"] = len(sig)
     return counts
