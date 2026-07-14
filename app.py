@@ -59,7 +59,11 @@ st.markdown(
 # --- Datos ---------------------------------------------------------------------
 
 
-@st.cache_data(ttl=300)
+# cache_resource (no cache_data): cache_data des-serializa una copia completa de
+# todas las tablas (~60 MB con ad_detail) en CADA rerun de CADA sesión, lo que
+# dispara la memoria en Streamlit Cloud. Con cache_resource se comparte una sola
+# instancia; ninguna vista muta los DataFrames cacheados (siempre .copy()/derivados).
+@st.cache_resource(ttl=3600)
 def load_tables() -> dict[str, pd.DataFrame]:
     tables = {}
     for name in ["spend_by_page", "spend_by_region", "spend_by_page_region",
