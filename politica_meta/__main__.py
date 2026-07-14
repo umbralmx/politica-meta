@@ -145,6 +145,16 @@ def cmd_stats(args: argparse.Namespace) -> None:
             f"Gasto (rango):      ${s['spend_lower_sum']:,.0f} – "
             f"${s['spend_upper_sum'] or 0:,.0f}"
         )
+    cov = s["coverage"]
+    if cov["days_total"]:
+        print(
+            f"Completitud:        {cov['days_covered']}/{cov['days_total']} días garantizados "
+            f"({cov['range'][0]} → {cov['range'][1]}, {len(cov['gaps'])} huecos)"
+        )
+        for gi, gf in cov["gaps"][:8]:
+            print(f"  hueco: {gi} → {gf}")
+        if len(cov["gaps"]) > 8:
+            print(f"  … y {len(cov['gaps']) - 8} huecos más")
     if s["top_pages"]:
         print("\nTop páginas por gasto (cota superior):")
         for name, page_id, ads, lo, hi in s["top_pages"]:
@@ -196,7 +206,7 @@ def main() -> None:
     p_agg.add_argument("--end", help="filtrar por fecha de entrega máxima YYYY-MM-DD")
     p_agg.add_argument(
         "--by",
-        choices=["page", "region", "page_region", "month", "page_month", "ads"],
+        choices=["page", "region", "page_region", "month", "page_month", "ads", "signals"],
         help="emitir solo una familia de tablas (default: todas)",
     )
     p_agg.add_argument("--region", help='vista por entidad, p. ej. --region "Sonora"')

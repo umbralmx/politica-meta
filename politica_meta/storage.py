@@ -213,4 +213,41 @@ class AdStore:
             "spend_upper_sum": spend_hi,
             "distinct_pages": pages,
             "top_pages": top_pages,
+            "coverage": self.window_coverage(),
+        }
+
+    def window_coverage(self) -> dict[str, Any]:
+        """Días garantizados por ventanas completadas vs huecos del barrido.
+        Un día fuera de una ventana completada puede tener anuncios (ventana
+        parcial), pero su completitud NO está garantizada."""
+        rows = self.conn.execute(
+            "SELECT date_min, date_max FROM windows ORDER BY date_min"
+        ).fetchall()
+        if not rows:
+            return {"days_total": 0, "days_covered": 0, "gaps": []}
+        covered: set[dt.date] = set()
+        for dmin, dmax in rows:
+            d = dt.date.fromisoformat(dmin)
+            last = dt.date.fromisoformat(dmax)
+            while d <= last:
+                covered.add(d)
+                d += dt.timedelta(days=1)
+        start, end = min(covered), max(covered)
+        gaps: list[tuple[str, str]] = []  # rangos [inicio, fin] contiguos sin cubrir
+        gap_start = None
+        d = start
+        while d <= end:
+            if d not in covered and gap_start is None:
+                gap_start = d
+            elif d in covered and gap_start is not None:
+                gaps.append((gap_start.isoformat(), (d - dt.timedelta(days=1)).isoformat()))
+                gap_start = None
+            d += dt.timedelta(days=1)
+        if gap_start is not None:
+            gaps.append((gap_start.isoformat(), end.isoformat()))
+        return {
+            "days_total": (end - start).days + 1,
+            "days_covered": len(covered),
+            "range": (start.isoformat(), end.isoformat()),
+            "gaps": gaps,
         }
