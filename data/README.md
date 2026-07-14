@@ -1,7 +1,9 @@
 # Diccionario de datos — `data/`
 
 Archivos generados por el pipeline de `politica_meta`. Nada en esta carpeta se
-versiona en git (salvo este README); todo se regenera con los comandos indicados.
+versiona en git salvo este README y los **Parquet de `aggregates/`** (que alimentan
+el dashboard publicado en Streamlit Cloud); todo se regenera con los comandos
+indicados.
 
 ## Convenciones globales
 
@@ -96,6 +98,20 @@ Simplificación conocida y documentada: un anuncio que corrió 3 meses aparece
 entero en su mes de inicio (el prorrateo por días activos es una v2 pendiente).
 Columnas: `month`, [`page_id`, `page_name`,] `ads`, intervalos, `upper_unbounded`,
 `time_method`.
+
+### `ad_detail` — detalle por anuncio
+
+Un renglón por anuncio, para el drill-down por anunciante del dashboard
+(familia `--by ads`).
+
+| Columna | Descripción |
+|---|---|
+| `ad_id`, `page_id`, `page_name`, `bylines` | Anuncio, página y pagador declarado |
+| `start_date` | Fecha de inicio de entrega (YYYY-MM-DD) |
+| `spend_lower`, `spend_upper`, `upper_unbounded` | Intervalo de gasto del anuncio |
+| `snippet` | Primer texto del creativo (o del link), truncado a 200 caracteres |
+| `regions_mx` | Entrega por entidad, compacto: `"Entidad:pct\|Entidad:pct\|…"` (solo las 32 canónicas, orden descendente) |
+| `ad_url` | Vista pública `facebook.com/ads/library/?id=<ad_id>`. **Deliberadamente no** se incluye `ad_snapshot_url`: esa URL lleva el access token y esta tabla se publica |
 
 ### `top_pages_<entidad>.csv` — ranking por estado
 

@@ -170,6 +170,84 @@ def spend_by_page_month(store: AdStore, start: str | None = None, end: str | Non
     return df
 
 
+# --- Per-ad detail (drives the advertiser drill-down in the dashboard) ----------
+
+_AD_DETAIL_QUERY = """
+SELECT id, page_id, page_name, bylines,
+       substr(ad_delivery_start_time, 1, 10) AS start_date,
+       spend_lower, spend_upper,
+       creative_bodies, link_titles, delivery_by_region
+FROM ads
+WHERE (:start IS NULL OR ad_delivery_start_time >= :start)
+  AND (:end IS NULL OR ad_delivery_start_time <= :end)
+ORDER BY spend_lower DESC
+"""
+
+_SNIPPET_LEN = 200
+
+
+def _first_text(json_list: str | None) -> str | None:
+    """First non-empty string of a JSON-encoded list, truncated for display."""
+    if not json_list:
+        return None
+    try:
+        items = json.loads(json_list)
+    except (TypeError, ValueError):
+        return None
+    for item in items if isinstance(items, list) else []:
+        if isinstance(item, str) and item.strip():
+            text = " ".join(item.split())
+            return text[:_SNIPPET_LEN] + ("…" if len(text) > _SNIPPET_LEN else "")
+    return None
+
+
+def ad_detail(store: AdStore, start: str | None = None, end: str | None = None):
+    """One row per ad, for the per-advertiser drill-down.
+
+    - `regions_mx`: "Entidad:pct|Entidad:pct|…" (solo las 32 canónicas, orden
+      descendente por porcentaje de entrega). Compacto para que la tabla quepa
+      en un parquet publicable; el dashboard lo parsea al filtrar por entidad.
+    - `ad_url`: vista pública facebook.com/ads/library/?id=<id>. Se excluye
+      deliberadamente `ad_snapshot_url` porque incluye el access token.
+    """
+    import pandas as pd
+
+    records = []
+    cur = store.conn.execute(_AD_DETAIL_QUERY, {"start": start, "end": end})
+    for ad_id, page_id, page_name, bylines, start_date, lo, hi, bodies, titles, region_json in cur:
+        pairs: list[tuple[str, float]] = []
+        if region_json:
+            try:
+                items = json.loads(region_json)
+            except (TypeError, ValueError):
+                items = []
+            for item in items if isinstance(items, list) else []:
+                canon = canonical_mx_region(item.get("region"))
+                if canon is None:
+                    continue
+                try:
+                    pairs.append((canon, float(item.get("percentage", 0))))
+                except (TypeError, ValueError):
+                    continue
+            pairs.sort(key=lambda t: -t[1])
+        records.append(
+            {
+                "ad_id": ad_id,
+                "page_id": page_id,
+                "page_name": page_name,
+                "bylines": bylines,
+                "start_date": start_date,
+                "spend_lower": lo,
+                "spend_upper": hi,
+                "upper_unbounded": hi is None,
+                "snippet": _first_text(bodies) or _first_text(titles),
+                "regions_mx": "|".join(f"{n}:{p:.4f}" for n, p in pairs) or None,
+                "ad_url": f"https://www.facebook.com/ads/library/?id={ad_id}",
+            }
+        )
+    return pd.DataFrame(records)
+
+
 # --- Core joint aggregate: page × region ---------------------------------------
 
 
@@ -376,7 +454,7 @@ def write_aggregates(
     only: str | None = None,
 ) -> dict[str, int]:
     """Emit aggregate tables (CSV + Parquet). `only` limits to one family:
-    page | region | page_region | month | page_month. Default: all."""
+    page | region | page_region | month | page_month | ads. Default: all."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     counts: dict[str, int] = {}
@@ -414,4 +492,8 @@ def write_aggregates(
         pm = spend_by_page_month(store, start, end)
         _write(pm, out, "spend_by_page_month")
         counts["page_month"] = len(pm)
+    if only in (None, "ads"):
+        ads = ad_detail(store, start, end)
+        _write(ads, out, "ad_detail")
+        counts["ads"] = len(ads)
     return counts

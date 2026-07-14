@@ -196,7 +196,7 @@ def main() -> None:
     p_agg.add_argument("--end", help="filtrar por fecha de entrega máxima YYYY-MM-DD")
     p_agg.add_argument(
         "--by",
-        choices=["page", "region", "page_region", "month", "page_month"],
+        choices=["page", "region", "page_region", "month", "page_month", "ads"],
         help="emitir solo una familia de tablas (default: todas)",
     )
     p_agg.add_argument("--region", help='vista por entidad, p. ej. --region "Sonora"')

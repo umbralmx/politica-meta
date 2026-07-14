@@ -63,7 +63,7 @@ st.markdown(
 def load_tables() -> dict[str, pd.DataFrame]:
     tables = {}
     for name in ["spend_by_page", "spend_by_region", "spend_by_page_region",
-                 "spend_by_month", "spend_by_page_month"]:
+                 "spend_by_month", "spend_by_page_month", "ad_detail"]:
         path = AGG_DIR / f"{name}.parquet"
         if path.exists():
             tables[name] = pd.read_parquet(path)
@@ -85,6 +85,21 @@ def fmt_intervalo(lo: float, hi: float | None, unbounded: bool = False) -> str:
     if unbounded or hi is None or pd.isna(hi):
         return f"≥ {fmt_mxn(lo)} MXN"
     return f"{fmt_mxn(lo)} – {fmt_mxn(hi)} MXN"
+
+
+def parse_regiones(compacto: str | None) -> list[tuple[str, float]]:
+    """'Sonora:0.6234|Sinaloa:0.2000' → [("Sonora", 0.6234), …] (orden original,
+    descendente por entrega). Formato definido en aggregates.ad_detail."""
+    if not compacto or pd.isna(compacto):
+        return []
+    pares = []
+    for parte in compacto.split("|"):
+        nombre, _, pct = parte.rpartition(":")
+        try:
+            pares.append((nombre, float(pct)))
+        except ValueError:
+            continue
+    return pares
 
 
 def base_layout(fig: go.Figure, height: int = 380) -> go.Figure:
@@ -261,6 +276,69 @@ with tab_anunciante:
                    "10 entidades con mayor gasto asignado · estimación modelada")
         st.plotly_chart(barras_ranking(footprint, "region"), use_container_width=True)
         st.markdown(f"<span style='color:{CAPTION};font-size:13px'>{NOTA_MODELADO}</span>",
+                    unsafe_allow_html=True)
+        fuente()
+
+    detalle = tablas.get("ad_detail")
+    if detalle is not None:
+        ads_pagina = detalle[detalle["page_id"] == page_id].copy()
+        ads_pagina["_regiones"] = ads_pagina["regions_mx"].map(parse_regiones)
+        estados_pagina = sorted({e for regs in ads_pagina["_regiones"] for e, _ in regs})
+
+        chart_meta("Anuncios de la página",
+                   "Un renglón por anuncio · gasto como intervalo publicado por Meta · "
+                   "el enlace abre el anuncio en la Ad Library pública")
+        estado_ads = st.selectbox(
+            "Entidad federativa (anuncios con entrega en…)",
+            ["Todas las entidades"] + estados_pagina,
+        )
+
+        if estado_ads != "Todas las entidades":
+            ads_pagina["_pct"] = ads_pagina["_regiones"].map(
+                lambda regs: dict(regs).get(estado_ads, 0.0))
+            ads_pagina = ads_pagina[ads_pagina["_pct"] > 0].copy()
+            ads_pagina["entidad"] = estado_ads
+            ads_pagina["pct_entrega"] = ads_pagina["_pct"] * 100
+            ads_pagina["alloc_lower"] = ads_pagina["spend_lower"] * ads_pagina["_pct"]
+            ads_pagina["alloc_upper"] = ads_pagina["spend_upper"] * ads_pagina["_pct"]
+        else:
+            ads_pagina["entidad"] = ads_pagina["_regiones"].map(
+                lambda regs: regs[0][0] if regs else "—")
+
+        columnas = {
+            "start_date": "Inicio",
+            "entidad": "Entidad" if estado_ads != "Todas las entidades" else "Entidad principal",
+            "page_name": "Anunciante",
+            "snippet": "Anuncio (primer texto)",
+            "spend_lower": "Gasto mín (MXN)",
+            "spend_upper": "Gasto máx (MXN)",
+        }
+        if estado_ads != "Todas las entidades":
+            columnas |= {
+                "pct_entrega": f"% entrega en {estado_ads}",
+                "alloc_lower": "Asignado mín (MXN)",
+                "alloc_upper": "Asignado máx (MXN)",
+            }
+        columnas["ad_url"] = "Ver"
+
+        ads_pagina = ads_pagina.sort_values("spend_lower", ascending=False)
+        st.dataframe(
+            ads_pagina[list(columnas)].rename(columns=columnas),
+            column_config={
+                "Ver": st.column_config.LinkColumn("Ver", display_text="Ad Library"),
+                f"% entrega en {estado_ads}": st.column_config.NumberColumn(format="%.1f %%"),
+                "Gasto mín (MXN)": st.column_config.NumberColumn(format="%.0f"),
+                "Gasto máx (MXN)": st.column_config.NumberColumn(format="%.0f"),
+                "Asignado mín (MXN)": st.column_config.NumberColumn(format="%.0f"),
+                "Asignado máx (MXN)": st.column_config.NumberColumn(format="%.0f"),
+            },
+            use_container_width=True, hide_index=True,
+        )
+        nota = (f"{len(ads_pagina):,} anuncios · Gasto máx vacío = sin techo conocido "
+                "(bucket superior abierto de Meta).")
+        if estado_ads != "Todas las entidades":
+            nota += f" Las columnas asignadas prorratean el intervalo por el % de entrega en {estado_ads}. {NOTA_MODELADO}"
+        st.markdown(f"<span style='color:{CAPTION};font-size:13px'>{nota}</span>",
                     unsafe_allow_html=True)
         fuente()
 
