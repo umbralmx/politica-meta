@@ -1,1 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120"><line x1="14.399999999999999" y1="60" x2="103.2" y2="60" stroke="#9AA19B" stroke-width="8" stroke-dasharray="24 17.6" stroke-linecap="butt"></line><rect x="48" y="14.399999999999999" width="12.8" height="91.2" fill="#128273"></rect></svg>
+<!-- umbral-isotype-light.svg — GENERATED from build/logo.mjs. Do not edit.
+     Bar ratio 5:44; bar crosses at 40% of the threshold line.
+     Umbral design system · code MIT · content CC BY 4.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120" role="img" aria-label="umbral_">
+  <line x1="13.6" y1="60" x2="109.6" y2="60" stroke="#6c706d" stroke-width="7" stroke-dasharray="10.08 7.20" stroke-linecap="butt"/><rect x="47" y="16" width="10" height="88" fill="#128273"/>
+</svg>
