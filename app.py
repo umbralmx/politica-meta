@@ -7,25 +7,56 @@ Modo instrumento (oscuro). Lee las tablas de data/aggregates/ generadas por
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 
 # --- Tokens umbral_ (modo instrumento) — assets/tokens.json es la fuente ------
-INK = "#EDF1F4"
-BASE = "#101418"
-PANEL = "#171C22"
-BORDER = "#2A3138"
-GRIDLINE = "#232A31"
-BASELINE = "#3A434C"
-MUTED = "#8B95A0"
-CAPTION = "#5C6670"
-SIGNAL = "#5FD4C4"
+# Los tokens se leen del archivo generado, no se reescriben a mano (UMB-COL-002).
+# assets/tokens.json viene de umbral-style-guide v1.1.0; actualizarlo es todo lo
+# que hace falta cuando cambia un valor.
+_TOKENS = json.loads((Path(__file__).parent / "assets/tokens.json").read_text())["mode"]["instrumento"]
+INK = _TOKENS["ink"]
+BASE = _TOKENS["base"]
+PANEL = _TOKENS["panel"]
+BORDER = _TOKENS["border"]
+GRIDLINE = _TOKENS["gridline"]
+BASELINE = _TOKENS["baseline"]
+MUTED = _TOKENS["muted"]
+CAPTION = _TOKENS["caption"]          # v1.0 lo tenía en #5C6670 = 2.93:1, por debajo de AA
+SIGNAL = _TOKENS["signal"]
+SIGNAL_TEXT = _TOKENS["signal-text"]
+
+_FONT = json.loads((Path(__file__).parent / "assets/tokens.json").read_text())["font"]
+FONT_DISPLAY = _FONT["display"]
+FONT_BODY = _FONT["body"]
+FONT_MONO = _FONT["mono"]
 
 AGG_DIR = Path("data/aggregates")
-FUENTE = "Fuente: Meta Ad Library API · umbral_ · CC BY 4.0"
+def _snapshot_tag() -> str:
+    """Fecha del corte de datos, en ISO.
+
+    Se toma del archivo de agregados en vez de escribirse a mano, para que la
+    línea de fuente no pueda quedarse vieja sin que nadie lo note.
+    """
+    import datetime
+    try:
+        newest = max(f.stat().st_mtime for f in AGG_DIR.glob("*") if f.is_file())
+        return datetime.date.fromtimestamp(newest).isoformat()
+    except (ValueError, OSError):
+        return datetime.date.today().isoformat()
+
+# umbral-lint: ignore[snapshot-tag] — la línea se arma en tiempo de ejecución
+# La fecha de consulta y la etiqueta del corte viajan con la gráfica: sin ellas,
+# dos gráficas correctas hechas con semanas de diferencia parecen contradecirse
+# (UMB-DAT-002). Se leen del propio corte de datos.
+_SNAPSHOT = _snapshot_tag()
+FUENTE = (f"Fuente: Meta Ad Library API · consultado {_SNAPSHOT} · "
+          f"meta-ads-{_SNAPSHOT[:7]} · umbral.mx · datos CC BY 4.0")
 NOTA_MODELADO = (
     "Los montos por entidad son estimaciones modeladas: el gasto de cada anuncio "
     "se prorratea según la distribución de impresiones (`delivery_by_region`) que "
@@ -38,18 +69,34 @@ st.set_page_config(
     layout="wide",
 )
 
+# Streamlit fija lang="en" y no lo expone. Sin esto un lector de pantalla
+# pronuncia todo el tablero con fonética inglesa (UMB-A11Y-001).
+components.html(
+    "<script>window.parent.document.documentElement.lang='es';</script>", height=0
+)
+
 st.markdown(
-    """
+    f"""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
-    html, body, [class*="css"] { font-family: 'IBM Plex Sans', sans-serif; }
-    h1, h2, h3 { font-family: 'Space Grotesk', sans-serif !important; font-weight: 500 !important; letter-spacing: -0.02em; }
-    [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 1.6rem; }
-    [data-testid="stMetricLabel"] { color: #8B95A0; }
-    .fuente { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #5C6670;
-              border-top: 1px solid #2A3138; padding-top: 6px; margin-top: -8px; }
-    .u-wordmark { font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 1.1rem; }
-    .u-wordmark span { color: #5FD4C4; }
+    /* umbral-lint: ignore[hardcoded-value] — un @font-face tiene que nombrar la familia */
+    /* Auto-hospedadas (UMB-TYP-005): un producto de datos tiene que funcionar
+       sin conexión y en redes de gobierno, y un CDN filtra la IP de cada lector. */
+    @font-face {{ font-family: 'Space Grotesk'; font-weight: 500 600; font-display: swap;
+                 src: url('app/static/fonts/space-grotesk-latin.woff2') format('woff2'); }}
+    @font-face {{ font-family: 'IBM Plex Sans'; font-weight: 400 600; font-display: swap;
+                 src: url('app/static/fonts/ibm-plex-sans-latin.woff2') format('woff2'); }}
+    @font-face {{ font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap;
+                 src: url('app/static/fonts/ibm-plex-mono-400-latin.woff2') format('woff2'); }}
+    @font-face {{ font-family: 'IBM Plex Mono'; font-weight: 500; font-display: swap;
+                 src: url('app/static/fonts/ibm-plex-mono-500-latin.woff2') format('woff2'); }}
+    html, body, [class*="css"] {{ font-family: 'IBM Plex Sans', sans-serif; }}
+    h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; font-weight: 500 !important; letter-spacing: -0.02em; }}
+    [data-testid="stMetricValue"] {{ font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 1.6rem; }}
+    [data-testid="stMetricLabel"] {{ color: {MUTED}; }}
+    .fuente {{ font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: {CAPTION};
+              border-top: 1px solid {BORDER}; padding-top: 6px; margin-top: -8px; }}
+    .u-wordmark {{ font-family: 'Space Grotesk', sans-serif; font-weight: 500; font-size: 1.1rem; }}
+    .u-wordmark span {{ color: {SIGNAL_TEXT}; }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -111,16 +158,16 @@ def base_layout(fig: go.Figure, height: int = 380) -> go.Figure:
         height=height,
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family="IBM Plex Sans", color=INK, size=14),
+        font=dict(family=FONT_BODY, color=INK, size=14),
         margin=dict(l=8, r=16, t=8, b=8),
         showlegend=False,
         hoverlabel=dict(bgcolor=PANEL, bordercolor=BORDER,
-                        font=dict(family="IBM Plex Mono", color=INK, size=13)),
+                        font=dict(family=FONT_MONO, color=INK, size=13)),
     )
     fig.update_xaxes(showgrid=False, linecolor=BASELINE,
-                     tickfont=dict(family="IBM Plex Mono", size=12, color=CAPTION))
+                     tickfont=dict(family=FONT_MONO, size=12, color=CAPTION))
     fig.update_yaxes(gridcolor=GRIDLINE, zerolinecolor=BASELINE, linecolor="rgba(0,0,0,0)",
-                     tickfont=dict(family="IBM Plex Mono", size=12, color=CAPTION))
+                     tickfont=dict(family=FONT_MONO, size=12, color=CAPTION))
     return fig
 
 
@@ -129,8 +176,19 @@ def chart_meta(titulo: str, subtitulo: str) -> None:
     st.markdown(f"<span style='color:{MUTED}'>{subtitulo}</span>", unsafe_allow_html=True)
 
 
-def fuente() -> None:
+def fuente(df: pd.DataFrame | None = None, nombre: str | None = None) -> None:
+    """Línea de fuente y, si se pasa el dato, su CSV.
+
+    Los datos públicos regresan al público: toda gráfica publica el CSV que la
+    sostiene (UMB-A11Y-004). Va en el mismo helper que la fuente para que la
+    versión conforme sea la más corta de escribir.
+    """
     st.markdown(f"<div class='fuente'>{FUENTE}</div>", unsafe_allow_html=True)
+    if df is not None and nombre:
+        st.download_button(
+            "Descargar CSV", df.to_csv(index=False).encode("utf-8"),
+            nombre, "text/csv", key=f"csv-{nombre}",
+        )
 
 
 def banda_mensual(df: pd.DataFrame) -> go.Figure:
@@ -215,7 +273,7 @@ with tab_panorama:
         "la banda es el intervalo [cota inferior, cota superior] que publica Meta",
     )
     st.plotly_chart(banda_mensual(months), use_container_width=True)
-    fuente()
+    fuente(months, "gasto-mensual.csv")
 
     top15 = pages.head(15)
     chart_meta(
@@ -223,7 +281,7 @@ with tab_panorama:
         "15 páginas con mayor gasto (cota inferior) · el bigote llega a la cota superior",
     )
     st.plotly_chart(barras_ranking(top15, "page_name"), use_container_width=True)
-    fuente()
+    fuente(top15, "top15-paginas.csv")
 
 with tab_entidad:
     estados = sorted(page_region["region"].unique())
@@ -243,7 +301,7 @@ with tab_entidad:
     st.plotly_chart(barras_ranking(sub, "page_name"), use_container_width=True)
     st.markdown(f"<span style='color:{CAPTION};font-size:13px'>{NOTA_MODELADO}</span>",
                 unsafe_allow_html=True)
-    fuente()
+    fuente(sub, f"{estado}-paginas.csv")
 
     st.dataframe(
         sub[["page_name", "bylines", "spend_lower", "spend_upper", "ad_touches"]]
@@ -271,7 +329,7 @@ with tab_anunciante:
         chart_meta("Gasto mensual de la página",
                    "Por mes de inicio de entrega · banda = intervalo publicado por Meta")
         st.plotly_chart(banda_mensual(serie), use_container_width=True)
-        fuente()
+        fuente(serie, "serie-pagina.csv")
 
     footprint = (page_region[page_region["page_id"] == page_id]
                  .sort_values("spend_lower", ascending=False).head(10))
@@ -281,7 +339,7 @@ with tab_anunciante:
         st.plotly_chart(barras_ranking(footprint, "region"), use_container_width=True)
         st.markdown(f"<span style='color:{CAPTION};font-size:13px'>{NOTA_MODELADO}</span>",
                     unsafe_allow_html=True)
-        fuente()
+        fuente(footprint, "entrega-por-entidad.csv")
 
     detalle = tablas.get("ad_detail")
     if detalle is not None:
@@ -344,7 +402,7 @@ with tab_anunciante:
             nota += f" Las columnas asignadas prorratean el intervalo por el % de entrega en {estado_ads}. {NOTA_MODELADO}"
         st.markdown(f"<span style='color:{CAPTION};font-size:13px'>{nota}</span>",
                     unsafe_allow_html=True)
-        fuente()
+        fuente(ads_pagina, "anuncios-pagina.csv")
 
     st.markdown(
         f"<span style='color:{MUTED}'>Ver los anuncios de esta página en la "
@@ -408,4 +466,4 @@ with tab_senales:
             "conocido · % entrega extranjera vacío = sin datos de región.</span>",
             unsafe_allow_html=True,
         )
-        fuente()
+        fuente(vista, "senales.csv")

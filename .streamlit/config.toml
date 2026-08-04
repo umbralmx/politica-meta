@@ -5,6 +5,11 @@ primaryColor = "#5FD4C4"
 backgroundColor = "#101418"
 secondaryBackgroundColor = "#171C22"
 textColor = "#EDF1F4"
+# Sin esta línea Streamlit usa su Source Sans por defecto, que es lo que
+# renderizaba la app (UMB-TYP-002). No es "sans serif": ese valor ES Source Sans.
+font = "IBM Plex Sans, sans-serif"
 
 [server]
 headless = true
+# Sirve static/ para auto-hospedar las fuentes (UMB-TYP-005).
+enableStaticServing = true
